@@ -2,6 +2,7 @@
 # License: MIT
 # Version: 2.0.0
 # Description: WiFi Manager for ESP8266 and ESP32 using MicroPython.
+# 05/09/2022: Added utf-8 characters to password field, from 0x20 to 0x7e
 
 import machine
 import network
@@ -207,12 +208,13 @@ class WifiManager:
         """)
         self.client.close()
 
-
     def __HandleConfigure(self):
-        match = ure.search('ssid=([^&]*)&password=(.*)', self.request)
+        match = ure.search('ssid=(.*)&password=(.*)', self.request)
         if match:
-            ssid = match.group(1).decode('utf-8').replace('%3F', '?').replace('%21', '!').replace('%23', '#')
-            password = match.group(2).decode('utf-8').replace('%3F', '?').replace('%21', '!')
+            ssid = match.group(1).decode('UTF-8')
+            password = match.group(2).decode('UTF-8')
+            ssid=self.decode_uri(ssid)
+            password=self.decode_uri(password)
             if len(ssid) == 0:
                 self.__SendResponse("""<p>SSID must be providaded!</p><p>Go back and try again!</p>""", 400)
             elif self.__WifiConnect(ssid, password):
@@ -232,3 +234,14 @@ class WifiManager:
     def __HandleNotFound(self):
         self.__SendResponse("""<p>Path not found!</p>""", 404)
         utime.sleep(5)
+
+    def decode_uri(self,uri):
+        _uri=uri.split('%')
+        decoded_uri=""
+        if len(_uri[0])>=0:
+            decoded_uri=''.join([chr(int(_uri[i+1][:2],16))+_uri[i+1][2:] for i,_ in enumerate(_uri[1:])])
+            decoded_uri=_uri[0]+decoded_uri
+        else:
+            decoded_uri=''.join([chr(int(_uri[i][:2],16))+_uri[i][2:] for i,_ in enumerate(_uri)])
+        return decoded_uri
+
